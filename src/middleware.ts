@@ -1,10 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/auth";
 
-export function middleware(request: NextRequest) {
-  const isAuthPage = request.nextUrl.pathname.startsWith("/api/auth");
-  if (isAuthPage) return NextResponse.next();
-  return NextResponse.redirect(new URL("/api/auth/signin", request.url));
-}
+export default auth((req) => {
+  if (!req.auth) {
+    return Response.redirect(new URL("/api/auth/signin", req.nextUrl));
+  }
+});
 
 export const config = {
   matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
