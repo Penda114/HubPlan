@@ -85,7 +85,7 @@ export default function Board() {
                             {...p.dragHandleProps}
                             href={issue.url}
                             target="_blank"
-                            className="block bg-neutral-800 rounded p-2 text-sm hover:bg-neutral-750"
+                            className="block bg-neutral-800 rounded p-2 text-sm hover:bg-neutral-700"
                           >
                             <span className="text-neutral-500 mr-1">#{issue.number}</span>
                             {issue.title}

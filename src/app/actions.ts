@@ -21,7 +21,9 @@ const COLUMN_PREFIX = "col:";
 
 function columnOfIssue(labels: { name: string }[]): Column {
   for (const l of labels) {
-    const c = l.name.replace(COLUMN_PREFIX, "").trim().toLowerCase();
+    const name = l.name.trim();
+    if (!name.toLowerCase().startsWith(COLUMN_PREFIX)) continue;
+    const c = name.slice(COLUMN_PREFIX.length).trim().toLowerCase();
     const found = COLUMNS.find((col) => col.toLowerCase() === c);
     if (found) return found;
   }
@@ -53,10 +55,24 @@ export async function moveIssue(number: number, column: Column): Promise<void> {
   const session = await auth();
   if (!session?.accessToken) throw new Error("Pas de token");
   const octokit = new Octokit({ auth: session.accessToken });
+
+  // Conserver les labels qui ne concernent pas les colonnes, ne remplacer que la colonne.
+  const { data: issue } = await octokit.request("GET /repos/{owner}/{repo}/issues/{issue_number}", {
+    owner: OWNER,
+    repo: REPO,
+    issue_number: number,
+  });
+  const kept = (issue.labels as (string | { name?: string })[])
+    .map((l) => (typeof l === "string" ? l : l.name))
+    .filter(
+      (name): name is string =>
+        !!name && !name.trim().toLowerCase().startsWith(COLUMN_PREFIX),
+    );
+
   await octokit.request("PUT /repos/{owner}/{repo}/issues/{issue_number}/labels", {
     owner: OWNER,
     repo: REPO,
     issue_number: number,
-    labels: [`${COLUMN_PREFIX}${column}`],
+    labels: [...kept, `${COLUMN_PREFIX}${column}`],
   });
 }
