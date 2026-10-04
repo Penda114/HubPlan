@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Docs() {
   const session = await auth();
-  if (!session?.user) redirect("/api/auth/signin");
+  // Idem : sans accessToken, la lecture du README échouerait systématiquement.
+  if (!session?.user || !session.accessToken) redirect("/api/auth/signin");
 
   let html = "";
   try {

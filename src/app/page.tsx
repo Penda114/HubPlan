@@ -6,7 +6,9 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const session = await auth();
-  if (!session?.user) redirect("/api/auth/signin");
+  // Une session héritée (cookie émis avant l'ajout du token) n'a pas d'accessToken :
+  // on force une réauthentification pour en régénérer un.
+  if (!session?.user || !session.accessToken) redirect("/api/auth/signin");
   return (
     <main className="p-4">
       <header className="flex items-center justify-between mb-4">
