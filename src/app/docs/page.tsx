@@ -1,44 +1,41 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { Octokit } from "octokit";
-import { marked } from "marked";
+import Header from "@/components/header";
+import { getContext } from "@/lib/current";
+import { listBoards, listCategories, listDesignElements, listMilestones } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function Docs() {
-  const session = await auth();
-  // Idem : sans accessToken, la lecture du README échouerait systématiquement.
-  if (!session?.user || !session.accessToken) redirect("/api/auth/signin");
-
-  let html = "";
-  try {
-    const octokit = new Octokit({ auth: session.accessToken });
-    const res = await octokit.request("GET /repos/{owner}/{repo}/readme", {
-      owner: process.env.GITHUB_OWNER!,
-      repo: process.env.GITHUB_REPO!,
-      headers: { Accept: "application/vnd.github.raw+json" },
-    });
-    html = await marked.parse(String(res.data));
-  } catch {
-    return (
-      <div className="p-6 text-center">
-        <p className="mb-4">Erreur</p>
-        <a href="/docs" className="border border-neutral-700 rounded px-4 py-2 hover:bg-neutral-800">
-          Refresh
-        </a>
-      </div>
-    );
-  }
+  const { user, project, role } = await getContext();
+  const [categories, boards, milestones, designElements] = await Promise.all([
+    listCategories(project.id),
+    listBoards(project.id),
+    listMilestones(project.id),
+    listDesignElements(project.id),
+  ]);
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <a href="/" className="text-sm text-neutral-500 hover:text-neutral-300 block mb-6">
-        ← Retour au board
-      </a>
-      <article
-        className="prose-neutral prose-invert [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-semibold [&_h3]:mt-4 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_a]:text-blue-400 [&_a]:underline [&_code]:bg-neutral-800 [&_code]:rounded [&_code]:px-1 [&_pre]:bg-neutral-800 [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+    <main className="p-4 max-w-3xl mx-auto">
+      <Header project={project} user={user} role={role} current="/docs" />
+
+      <h2 className="text-sm font-semibold text-neutral-300 mb-2">Documentation du projet</h2>
+      <dl className="text-sm space-y-4">
+        <div>
+          <dt className="text-neutral-500 text-xs uppercase">Disciplines</dt>
+          <dd>{categories.map((c) => c.name).join(", ") || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-neutral-500 text-xs uppercase">Boards</dt>
+          <dd>{boards.map((b) => b.name).join(", ") || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-neutral-500 text-xs uppercase">Milestones</dt>
+          <dd>{milestones.map((m) => m.name).join(", ") || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-neutral-500 text-xs uppercase">Éléments de design</dt>
+          <dd>{designElements.map((d) => d.name).join(", ") || "—"}</dd>
+        </div>
+      </dl>
     </main>
   );
 }

@@ -1,0 +1,226 @@
+// HubPlan — schéma de domaine inspiré d'HacknPlan (gestion de projet jeu vidéo)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum Stage {
+  PLANNED
+  IN_PROGRESS
+  TESTING
+  COMPLETED
+}
+
+enum ItemType {
+  TASK
+  USER_STORY
+  BUG
+  FEATURE
+}
+
+enum Importance {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model User {
+  id          String       @id @default(cuid())
+  githubId    String       @unique
+  login       String?
+  name        String?
+  email       String?
+  image       String?
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  assigned    WorkItem[]   @relation("assignees")
+  comments    Comment[]
+  workLogs    WorkLog[]
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  name           String
+  key            String          @unique
+  createdAt      DateTime        @default(now())
+  memberships    Membership[]
+  categories     Category[]
+  boards         Board[]
+  milestones     Milestone[]
+  designElements DesignElement[]
+  workItems      WorkItem[]
+  tags           Tag[]
+}
+
+model Membership {
+  id        String  @id @default(cuid())
+  role      Role    @default(MEMBER)
+  userId    String
+  projectId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+}
+
+// Discipline (Programming, Art, Audio, Design…) — obligatoire sur une tâche.
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  color     String     @default("#888888")
+  projectId String
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItems WorkItem[]
+
+  @@unique([projectId, name])
+}
+
+// Itération / sprint : fenêtre d'exécution courte.
+model Board {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  isDefault   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  projectId   String
+  milestoneId String?
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  workItems   WorkItem[]
+
+  @@unique([projectId, name])
+}
+
+// Objectif roadmap (Alpha, Beta, Vertical slice…).
+model Milestone {
+  id        String   @id @default(cuid())
+  name      String
+  dueDate   DateTime?
+  createdAt DateTime @default(now())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boards    Board[]
+
+  @@unique([projectId, name])
+}
+
+// Game Design Model : arbre d'éléments de design (mécanique, niveau, personnage…).
+model DesignElement {
+  id          String          @id @default(cuid())
+  name        String
+  type        String          @default("Element")
+  description String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  order       Float           @default(0)
+  projectId   String
+  parentId    String?
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent      DesignElement?  @relation("GDM", fields: [parentId], references: [id], onDelete: Cascade)
+  children    DesignElement[] @relation("GDM")
+  workItems   WorkItem[]
+
+  @@index([projectId])
+}
+
+model Tag {
+  id        String        @id @default(cuid())
+  name      String
+  color     String        @default("#888888")
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItems WorkItemTag[]
+
+  @@unique([projectId, name])
+}
+
+model WorkItem {
+  id              String         @id @default(cuid())
+  type            ItemType       @default(TASK)
+  title           String
+  description     String?
+  stage           Stage          @default(PLANNED)
+  importance      Importance     @default(MEDIUM)
+  estimatedCost   Float?
+  startDate       DateTime?
+  dueDate         DateTime?
+  order           Float          @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
+  projectId       String
+  categoryId      String?
+  boardId         String?
+  designElementId String?
+  parentId        String?
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category        Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  board           Board?         @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  designElement   DesignElement? @relation(fields: [designElementId], references: [id], onDelete: SetNull)
+  parent          WorkItem?      @relation("Hierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children        WorkItem[]     @relation("Hierarchy")
+  assignees       User[]         @relation("assignees")
+  tags            WorkItemTag[]
+  comments        Comment[]
+  workLogs        WorkLog[]
+  blocks          Dependency[]   @relation("blocker")
+  blockedBy       Dependency[]   @relation("blocked")
+
+  @@index([projectId, stage])
+  @@index([projectId, boardId])
+}
+
+model Dependency {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  blocker   WorkItem @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   WorkItem @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+model WorkItemTag {
+  workItemId String
+  tagId      String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([workItemId, tagId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  body       String
+  createdAt  DateTime @default(now())
+  workItemId String
+  authorId   String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model WorkLog {
+  id         String   @id @default(cuid())
+  hours      Float
+  note       String?
+  date       DateTime @default(now())
+  workItemId String
+  userId     String
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

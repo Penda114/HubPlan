@@ -1,105 +1,463 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { getIssues, moveIssue, type Column, type Issue } from "./actions";
+import {
+  createWorkItem,
+  deleteWorkItem,
+  logWork,
+  setWorkItemStage,
+  updateWorkItem,
+} from "./actions";
+import {
+  IMPORTANCES,
+  ITEM_TYPES,
+  STAGES,
+  importanceMeta,
+  type Importance,
+  type ItemType,
+  type Option,
+  type Stage,
+  type WorkItemDTO,
+} from "@/lib/types";
 
-const COLUMNS: Column[] = ["Backlog", "En cours", "Review", "Terminé"];
+type Props = {
+  items: WorkItemDTO[];
+  categories: Option[];
+  boards: Option[];
+  designElements: Option[];
+  members: { id: string; name: string }[];
+  canEdit: boolean;
+};
 
-export default function Board() {
-  const [issues, setIssues] = useState<Issue[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [, startTransition] = useTransition();
+type FormState = {
+  title: string;
+  type: ItemType;
+  description: string;
+  stage: Stage;
+  importance: Importance;
+  estimatedCost: string;
+  categoryId: string;
+  boardId: string;
+  designElementId: string;
+  assigneeIds: string[];
+};
 
-  async function load() {
-    setFailed(false);
-    try {
-      setIssues(await getIssues());
-    } catch {
-      setFailed(true);
-    }
+const EMPTY_FORM: FormState = {
+  title: "",
+  type: "TASK",
+  description: "",
+  stage: "PLANNED",
+  importance: "MEDIUM",
+  estimatedCost: "",
+  categoryId: "",
+  boardId: "",
+  designElementId: "",
+  assigneeIds: [],
+};
+
+export default function Board(props: Props) {
+  const router = useRouter();
+  const [items, setItems] = useState<WorkItemDTO[]>(props.items);
+  const [prevItems, setPrevItems] = useState(props.items);
+  if (prevItems !== props.items) {
+    setPrevItems(props.items);
+    setItems(props.items);
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  const [editing, setEditing] = useState<WorkItemDTO | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  function onDragEnd(result: DropResult) {
-    if (!issues || !result.destination) return;
-    const column = result.destination.droppableId as Column;
-    if (result.source.droppableId === column && result.source.index === result.destination.index) {
-      return;
-    }
-    const number = Number(result.draggableId);
-    const moved = issues.find((i) => i.number === number);
-    if (!moved || moved.column === column) return;
-    setIssues(issues.map((i) => (i.number === number ? { ...i, column } : i)));
+  function openCreate() {
+    setError(null);
+    setForm(EMPTY_FORM);
+    setEditing(null);
+    setCreating(true);
+  }
+
+  function openEdit(item: WorkItemDTO) {
+    setError(null);
+    setEditing(item);
+    setCreating(false);
+    setForm({
+      title: item.title,
+      type: item.type,
+      description: item.description ?? "",
+      stage: item.stage,
+      importance: item.importance,
+      estimatedCost: item.estimatedCost != null ? String(item.estimatedCost) : "",
+      categoryId: item.categoryId ?? "",
+      boardId: item.boardId ?? "",
+      designElementId: item.designElementId ?? "",
+      assigneeIds: item.assigneeIds,
+    });
+  }
+
+  function closeModal() {
+    setCreating(false);
+    setEditing(null);
+    setError(null);
+  }
+
+  function submit() {
+    const payload = {
+      title: form.title,
+      type: form.type,
+      description: form.description,
+      stage: form.stage,
+      importance: form.importance,
+      estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : null,
+      categoryId: form.categoryId || null,
+      boardId: form.boardId || null,
+      designElementId: form.designElementId || null,
+      assigneeIds: form.assigneeIds,
+    };
     startTransition(async () => {
       try {
-        await moveIssue(number, column);
-      } catch {
-        load();
+        if (editing) await updateWorkItem(editing.id, payload);
+        else await createWorkItem(payload);
+        closeModal();
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erreur");
       }
     });
   }
 
-  if (failed) {
-    return (
-      <div className="text-center py-20">
-        <p className="mb-4">Erreur</p>
-        <button
-          onClick={load}
-          className="border border-neutral-700 rounded px-4 py-2 hover:bg-neutral-800"
-        >
-          Refresh
-        </button>
-      </div>
-    );
+  function remove() {
+    if (!editing) return;
+    startTransition(async () => {
+      try {
+        await deleteWorkItem(editing.id);
+        closeModal();
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erreur");
+      }
+    });
   }
 
-  if (!issues) return <p className="text-neutral-500">Chargement…</p>;
+  function onDragEnd(result: DropResult) {
+    if (!props.canEdit || !result.destination) return;
+    const stage = result.destination.droppableId as Stage;
+    const id = result.draggableId;
+    const item = items.find((i) => i.id === id);
+    if (!item || item.stage === stage) return;
+    setItems(items.map((i) => (i.id === id ? { ...i, stage } : i)));
+    startTransition(async () => {
+      try {
+        await setWorkItemStage(id, stage);
+        router.refresh();
+      } catch {
+        setItems(props.items);
+      }
+    });
+  }
+
+  const modalOpen = creating || editing !== null;
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="grid grid-cols-4 gap-4">
-        {COLUMNS.map((col) => (
-          <Droppable droppableId={col} key={col}>
-            {(provided) => (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className="bg-neutral-900 rounded p-2 min-h-[60vh]"
-              >
-                <h2 className="text-sm font-semibold text-neutral-400 mb-2 px-1">
-                  {col} ({issues.filter((i) => i.column === col).length})
-                </h2>
-                <div className="space-y-2">
-                  {issues
-                    .filter((i) => i.column === col)
-                    .map((issue, index) => (
-                      <Draggable draggableId={String(issue.number)} index={index} key={issue.number}>
-                        {(p) => (
-                          <a
-                            ref={p.innerRef}
-                            {...p.draggableProps}
-                            {...p.dragHandleProps}
-                            href={issue.url}
-                            target="_blank"
-                            className="block bg-neutral-800 rounded p-2 text-sm hover:bg-neutral-700"
-                          >
-                            <span className="text-neutral-500 mr-1">#{issue.number}</span>
-                            {issue.title}
-                          </a>
-                        )}
-                      </Draggable>
+    <>
+      <div className="flex justify-end mb-3">
+        {props.canEdit && (
+          <button
+            onClick={openCreate}
+            className="bg-blue-600 hover:bg-blue-500 rounded px-3 py-1.5 text-sm font-medium"
+          >
+            + Nouvelle tâche
+          </button>
+        )}
+      </div>
+
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="grid grid-cols-4 gap-4">
+          {STAGES.map((col) => {
+            const colItems = items.filter((i) => i.stage === col.id);
+            return (
+              <Droppable droppableId={col.id} key={col.id} isDropDisabled={!props.canEdit}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="bg-neutral-900 rounded p-2 min-h-[60vh]"
+                  >
+                    <h2 className="text-sm font-semibold text-neutral-400 mb-2 px-1">
+                      {col.label} ({colItems.length})
+                    </h2>
+                    <div className="space-y-2">
+                      {colItems.map((item, index) => (
+                        <Draggable
+                          draggableId={item.id}
+                          index={index}
+                          key={item.id}
+                          isDragDisabled={!props.canEdit}
+                        >
+                          {(p) => (
+                            <div
+                              ref={p.innerRef}
+                              {...p.draggableProps}
+                              {...p.dragHandleProps}
+                              onClick={() => openEdit(item)}
+                              className="bg-neutral-800 rounded p-2 text-sm cursor-pointer hover:bg-neutral-700"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span
+                                  className="text-[10px] uppercase font-bold px-1 rounded"
+                                  style={{
+                                    color: ITEM_TYPES.find((t) => t.id === item.type)?.color,
+                                  }}
+                                >
+                                  {ITEM_TYPES.find((t) => t.id === item.type)?.label}
+                                </span>
+                                <span
+                                  className="ml-auto text-xs"
+                                  style={{ color: importanceMeta(item.importance).color }}
+                                  title={importanceMeta(item.importance).label}
+                                >
+                                  ●
+                                </span>
+                              </div>
+                              <p className="leading-snug">{item.title}</p>
+                              <div className="flex items-center gap-2 mt-1.5 text-[11px] text-neutral-400 flex-wrap">
+                                {item.categoryName && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <span
+                                      className="w-2 h-2 rounded-full"
+                                      style={{ background: item.categoryColor ?? "#888" }}
+                                    />
+                                    {item.categoryName}
+                                  </span>
+                                )}
+                                {item.boardName && <span>· {item.boardName}</span>}
+                                {item.subtaskCount > 0 && <span>· {item.subtaskCount} sous-tâches</span>}
+                                {item.estimatedCost != null && <span>· {item.estimatedCost} pts</span>}
+                                {item.assigneeNames.length > 0 && (
+                                  <span className="ml-auto">{item.assigneeNames.join(", ")}</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
+        </div>
+      </DragDropContext>
+
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-start justify-center p-4 overflow-y-auto z-50">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-lg p-4 mt-10">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">{editing ? "Modifier la tâche" : "Nouvelle tâche"}</h3>
+              <button onClick={closeModal} className="text-neutral-400 hover:text-neutral-200">✕</button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <input
+                autoFocus
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Titre"
+                className="w-full bg-neutral-800 rounded px-2 py-1.5 outline-none"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-neutral-400 text-xs">Type</span>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value as ItemType })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  >
+                    {ITEM_TYPES.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
                     ))}
-                  {provided.placeholder}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-neutral-400 text-xs">Importance</span>
+                  <select
+                    value={form.importance}
+                    onChange={(e) => setForm({ ...form, importance: e.target.value as Importance })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  >
+                    {IMPORTANCES.map((i) => (
+                      <option key={i.id} value={i.id}>{i.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-neutral-400 text-xs">Catégorie</span>
+                  <select
+                    value={form.categoryId}
+                    onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  >
+                    <option value="">—</option>
+                    {props.categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-neutral-400 text-xs">Board</span>
+                  <select
+                    value={form.boardId}
+                    onChange={(e) => setForm({ ...form, boardId: e.target.value })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  >
+                    <option value="">—</option>
+                    {props.boards.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-neutral-400 text-xs">Élément de design</span>
+                  <select
+                    value={form.designElementId}
+                    onChange={(e) => setForm({ ...form, designElementId: e.target.value })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  >
+                    <option value="">—</option>
+                    {props.designElements.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-neutral-400 text-xs">Coût estimé (points)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={form.estimatedCost}
+                    onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  />
+                </label>
+                <label className="block col-span-2">
+                  <span className="text-neutral-400 text-xs">Colonne</span>
+                  <select
+                    value={form.stage}
+                    onChange={(e) => setForm({ ...form, stage: e.target.value as Stage })}
+                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                  >
+                    {STAGES.map((s) => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="text-neutral-400 text-xs">Assignés</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {props.members.map((m) => {
+                    const checked = form.assigneeIds.includes(m.id);
+                    return (
+                      <button
+                        type="button"
+                        key={m.id}
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            assigneeIds: checked
+                              ? form.assigneeIds.filter((id) => id !== m.id)
+                              : [...form.assigneeIds, m.id],
+                          })
+                        }
+                        className={`px-2 py-1 rounded text-xs border ${
+                          checked
+                            ? "bg-blue-600 border-blue-500"
+                            : "border-neutral-700 text-neutral-300"
+                        }`}
+                      >
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                  {props.members.length === 0 && (
+                    <span className="text-neutral-500 text-xs">Aucun membre</span>
+                  )}
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="text-neutral-400 text-xs">Description</span>
+                <textarea
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
+                />
+              </label>
+
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const h = prompt("Heures à logger ?", "1");
+                    if (!h) return;
+                    startTransition(async () => {
+                      try {
+                        await logWork(editing.id, Number(h));
+                        setEditing({ ...editing, loggedHours: editing.loggedHours + Number(h) });
+                        router.refresh();
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "Erreur");
+                      }
+                    });
+                  }}
+                  className="text-xs text-neutral-400 hover:text-neutral-200"
+                >
+                  Temps loggé : {editing.loggedHours}h — logger du temps
+                </button>
+              )}
+
+              {error && <p className="text-red-400 text-xs">{error}</p>}
+
+              <div className="flex items-center justify-between pt-2">
+                {editing ? (
+                  <button
+                    type="button"
+                    onClick={remove}
+                    className="text-red-400 hover:text-red-300 text-sm"
+                  >
+                    Supprimer
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="border border-neutral-700 rounded px-3 py-1.5"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submit}
+                    className="bg-blue-600 hover:bg-blue-500 rounded px-3 py-1.5 font-medium"
+                  >
+                    {editing ? "Enregistrer" : "Créer"}
+                  </button>
                 </div>
               </div>
-            )}
-          </Droppable>
-        ))}
-      </div>
-    </DragDropContext>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
