@@ -17,7 +17,7 @@ export default async function WikiPageView({
   if (!page) notFound();
 
   return (
-    <main className="p-4 max-w-3xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/docs" />
       <WikiView
         slug={page.slug}

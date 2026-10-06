@@ -115,7 +115,7 @@ export default async function DesignPage() {
   }
 
   return (
-    <main className="p-4 max-w-4xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/design" />
 
       <p className="text-sm text-neutral-400 mb-4">

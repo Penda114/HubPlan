@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/tickets", label: "Requêtes" },
   { href: "/metrics", label: "Métriques" },
   { href: "/docs", label: "Documentation" },
+  { href: "/commits", label: "Commits" },
 ];
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -33,7 +34,7 @@ export default function Header({
     <header className="flex items-center justify-between mb-6 gap-4 flex-wrap">
       <div className="flex items-center gap-5">
         <h1 className="text-base font-semibold tracking-tight">{project.name}</h1>
-        <nav className="flex gap-4 text-sm">
+        <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {LINKS.map((l) => (
             <a
               key={l.href}

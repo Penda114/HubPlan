@@ -118,6 +118,16 @@ d'office pour un Oui, donc **deux autres Oui** suffisent pour atteindre la major
 > intitulée « Le jeu ne démarre pas en salle 204 », tu l'assignes à Sam, vous discutez dans le fil
 > de messages, puis vous passez le statut à « Résolue ».
 
+## Les commits du dépôt
+
+**À quoi ça sert :** voir qui a poussé quoi sur le dépôt du jeu, sans ouvrir GitHub.
+
+La page **Commits** met en avant le **dernier commit** (auteur, message, date, numéro court,
+avec un lien vers GitHub) et liste les précédents.
+
+> **Cas concret :** en réunion, tu ouvres **Commits** : le dernier commit est « Ajouter le saut du
+> personnage » par Léa, il y a 2 h — tu sais immédiatement où en est le code.
+
 ## La sauvegarde
 
 **À quoi ça sert :** conserver une copie complète des données du projet.

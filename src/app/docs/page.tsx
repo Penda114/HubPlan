@@ -15,7 +15,7 @@ export default async function DocsPage() {
   const editable = canEdit(role);
 
   return (
-    <main className="p-4 max-w-3xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/docs" />
 
       <h2 className="text-sm font-semibold text-neutral-300 mb-3">Documentation</h2>

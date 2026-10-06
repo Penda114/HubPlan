@@ -89,7 +89,7 @@ export default async function MetricsPage() {
   });
 
   return (
-    <main className="p-4 max-w-4xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/metrics" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

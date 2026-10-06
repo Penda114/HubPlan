@@ -22,7 +22,7 @@ export default async function BoardsPage() {
   const manage = canManage(role);
 
   return (
-    <main className="p-4 max-w-4xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/boards" />
 
       <section className="mb-8">

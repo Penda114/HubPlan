@@ -22,7 +22,7 @@ export default async function TicketPage({
   const editable = canEdit(role);
 
   return (
-    <main className="p-4 max-w-2xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/tickets" />
 
       <h2 className="text-base font-semibold">{ticket.title}</h2>

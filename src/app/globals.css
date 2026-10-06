@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Texte un peu plus grand sur toute l'application (base 16px -> 17px). */
+html {
+  font-size: 17px;
+}
+
 .markdown h1 {
   font-size: 1.25rem;
   font-weight: 600;

@@ -33,7 +33,7 @@ export default async function Home() {
   const sprint = boards.find((b) => b.isDefault) ?? boards[0] ?? null;
 
   return (
-    <main className="p-4">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/" />
 
       {sprint && (

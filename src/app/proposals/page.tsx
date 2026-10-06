@@ -31,7 +31,7 @@ export default async function ProposalsPage() {
   const threshold = Math.floor(total / 2) + 1;
 
   return (
-    <main className="p-4 max-w-3xl mx-auto">
+    <main className="mx-auto w-[95%] py-6">
       <Header project={project} user={user} role={role} current="/proposals" />
 
       <h2 className="text-sm font-semibold text-neutral-300 mb-1">Propositions</h2>
