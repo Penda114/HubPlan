@@ -5,6 +5,8 @@ const LINKS = [
   { href: "/", label: "Tableau" },
   { href: "/boards", label: "Sprints" },
   { href: "/design", label: "Modèle de conception" },
+  { href: "/proposals", label: "Propositions" },
+  { href: "/tickets", label: "Requêtes" },
   { href: "/metrics", label: "Métriques" },
   { href: "/projects", label: "Projets" },
   { href: "/docs", label: "Documentation" },

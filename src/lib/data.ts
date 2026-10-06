@@ -69,6 +69,57 @@ export async function listDesignElements(projectId: string) {
   });
 }
 
+export async function countMembers(projectId: string) {
+  return prisma.membership.count({ where: { projectId } });
+}
+
+export async function listProposals(projectId: string) {
+  return prisma.proposal.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      author: true,
+      votes: { select: { choice: true, userId: true } },
+      _count: { select: { tasks: true } },
+    },
+  });
+}
+
+export async function getProposal(projectId: string, id: string) {
+  return prisma.proposal.findFirst({
+    where: { id, projectId },
+    include: {
+      author: true,
+      tasks: { orderBy: { order: "asc" } },
+      delegations: { include: { user: true } },
+      votes: { include: { user: true }, orderBy: { createdAt: "asc" } },
+    },
+  });
+}
+
+export async function listTickets(projectId: string) {
+  return prisma.ticket.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      author: true,
+      assignee: true,
+      _count: { select: { messages: true } },
+    },
+  });
+}
+
+export async function getTicket(projectId: string, id: string) {
+  return prisma.ticket.findFirst({
+    where: { id, projectId },
+    include: {
+      author: true,
+      assignee: true,
+      messages: { include: { author: true }, orderBy: { createdAt: "asc" } },
+    },
+  });
+}
+
 export async function listWikiPages(projectId: string) {
   return prisma.wikiPage.findMany({
     where: { projectId },

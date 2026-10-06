@@ -262,6 +262,179 @@ export async function deleteMedia(id: string): Promise<void> {
   revalidatePath("/media");
 }
 
+// ---------------------------------------------------------------- Propositions
+
+/**
+ * Soumet une proposition. Les tâches listées sont obligatoires ; les membres
+ * cochés sont pressentis pour les réaliser en cas d'adoption.
+ */
+export async function createProposal(input: {
+  title: string;
+  description: string;
+  tasks: string[];
+  delegationIds: string[];
+}): Promise<void> {
+  const { user, project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  const title = input.title.trim();
+  const tasks = input.tasks.map((t) => t.trim()).filter(Boolean);
+  if (!title) throw new Error("Titre requis");
+  if (tasks.length === 0) throw new Error("Liste au moins une tâche");
+
+  await prisma.proposal.create({
+    data: {
+      projectId: project.id,
+      authorId: user.id,
+      title,
+      description: input.description.trim(),
+      tasks: { create: tasks.map((t, index) => ({ title: t, order: index })) },
+      delegations: { create: input.delegationIds.map((userId) => ({ userId })) },
+    },
+  });
+  revalidatePath("/proposals");
+}
+
+/** Enregistre un vote et clôt la proposition si la majorité absolue est atteinte. */
+export async function voteProposal(
+  proposalId: string,
+  choice: "OUI" | "NON",
+  comment?: string,
+): Promise<void> {
+  const { user, project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+
+  const proposal = await prisma.proposal.findFirst({
+    where: { id: proposalId, projectId: project.id },
+    select: { id: true, status: true, authorId: true },
+  });
+  if (!proposal) throw new Error("Proposition introuvable");
+  if (proposal.status !== "OUVERTE") throw new Error("Proposition déjà tranchée");
+  if (proposal.authorId === user.id)
+    throw new Error("Le proposeur compte d'office pour un Oui");
+
+  await prisma.proposalVote.upsert({
+    where: { proposalId_userId: { proposalId, userId: user.id } },
+    update: { choice, comment: str(comment) },
+    create: { proposalId, userId: user.id, choice, comment: str(comment) },
+  });
+
+  await evaluateProposal(proposalId);
+  revalidatePath("/proposals");
+  revalidatePath(`/proposals/${proposalId}`);
+}
+
+/**
+ * Majorité absolue = moitié + 1 des membres, le proposeur comptant d'office
+ * pour un « Oui ». À l'adoption, les tâches de la proposition sont créées.
+ */
+async function evaluateProposal(proposalId: string): Promise<void> {
+  const proposal = await prisma.proposal.findUnique({
+    where: { id: proposalId },
+    include: {
+      votes: true,
+      tasks: { orderBy: { order: "asc" } },
+      delegations: true,
+    },
+  });
+  if (!proposal || proposal.status !== "OUVERTE") return;
+
+  const total = await prisma.membership.count({ where: { projectId: proposal.projectId } });
+  const threshold = Math.floor(total / 2) + 1;
+  const yes =
+    1 + proposal.votes.filter((v) => v.choice === "OUI" && v.userId !== proposal.authorId).length;
+  const no = proposal.votes.filter(
+    (v) => v.choice === "NON" && v.userId !== proposal.authorId,
+  ).length;
+
+  if (yes >= threshold) {
+    await prisma.proposal.update({
+      where: { id: proposalId },
+      data: { status: "ADOPTEE", closedAt: new Date() },
+    });
+    const assigneeIds = proposal.delegations.map((d) => d.userId);
+    for (const task of proposal.tasks) {
+      await prisma.workItem.create({
+        data: {
+          projectId: proposal.projectId,
+          title: task.title,
+          description: task.description,
+          type: "FEATURE",
+          assignees: { connect: assigneeIds.map((id) => ({ id })) },
+        },
+      });
+    }
+    revalidatePath("/");
+  } else if (no >= threshold) {
+    await prisma.proposal.update({
+      where: { id: proposalId },
+      data: { status: "REJETEE", closedAt: new Date() },
+    });
+  }
+}
+
+export async function deleteProposal(id: string): Promise<void> {
+  const { project, role } = await getContext();
+  if (!canManage(role)) throw new Error("Droits insuffisants");
+  await prisma.proposal.deleteMany({ where: { id, projectId: project.id } });
+  revalidatePath("/proposals");
+}
+
+// ---------------------------------------------------------------- Requêtes
+
+const TICKET_STATUSES = ["OUVERTE", "EN_COURS", "RESOLUE", "FERMEE"] as const;
+
+export async function createTicket(
+  title: string,
+  body: string,
+  assigneeId?: string | null,
+): Promise<void> {
+  const { user, project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  const clean = title.trim();
+  if (!clean) throw new Error("Titre requis");
+  await prisma.ticket.create({
+    data: {
+      projectId: project.id,
+      authorId: user.id,
+      title: clean,
+      body: body.trim(),
+      assigneeId: str(assigneeId),
+    },
+  });
+  revalidatePath("/tickets");
+}
+
+export async function addTicketMessage(ticketId: string, body: string): Promise<void> {
+  const { user, project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  const clean = body.trim();
+  if (!clean) throw new Error("Message vide");
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId, projectId: project.id },
+    select: { id: true },
+  });
+  if (!ticket) throw new Error("Requête introuvable");
+  await prisma.ticketMessage.create({
+    data: { ticketId, authorId: user.id, body: clean },
+  });
+  revalidatePath(`/tickets/${ticketId}`);
+}
+
+export async function setTicketStatus(
+  ticketId: string,
+  status: (typeof TICKET_STATUSES)[number],
+): Promise<void> {
+  const { project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  if (!TICKET_STATUSES.includes(status)) throw new Error("Statut invalide");
+  await prisma.ticket.updateMany({
+    where: { id: ticketId, projectId: project.id },
+    data: { status },
+  });
+  revalidatePath("/tickets");
+  revalidatePath(`/tickets/${ticketId}`);
+}
+
 // ---------------------------------------------------------------- Projets
 
 /** Rejoint un projet existant à partir de sa clé, puis renvoie son nom. */

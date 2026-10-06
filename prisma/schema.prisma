@@ -51,6 +51,12 @@ model User {
   timeSessions TimeSession[]
   wikiPages   WikiPage[]
   media       Media[]
+  proposals           Proposal[]           @relation("proposalAuthor")
+  proposalVotes       ProposalVote[]
+  proposalDelegations ProposalDelegation[]
+  ticketsAuthored     Ticket[]             @relation("ticketAuthor")
+  ticketsAssigned     Ticket[]             @relation("ticketAssignee")
+  ticketMessages      TicketMessage[]
 }
 
 model Project {
@@ -67,6 +73,8 @@ model Project {
   tags           Tag[]
   wikiPages      WikiPage[]
   media          Media[]
+  proposals      Proposal[]
+  tickets        Ticket[]
 }
 
 model Membership {
@@ -215,6 +223,107 @@ model Comment {
   authorId   String
   workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
   author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+enum VoteChoice {
+  OUI
+  NON
+}
+
+enum ProposalStatus {
+  OUVERTE
+  ADOPTEE
+  REJETEE
+}
+
+enum TicketStatus {
+  OUVERTE
+  EN_COURS
+  RESOLUE
+  FERMEE
+}
+
+// Proposition d'ajout au jeu, soumise au vote de l'équipe.
+model Proposal {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  status      ProposalStatus @default(OUVERTE)
+  createdAt   DateTime       @default(now())
+  closedAt    DateTime?
+  projectId   String
+  authorId    String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User           @relation("proposalAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  tasks       ProposalTask[]
+  delegations ProposalDelegation[]
+  votes       ProposalVote[]
+
+  @@index([projectId])
+}
+
+// Tâche précise décrite par une proposition (obligatoire à la soumission).
+model ProposalTask {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  order       Int      @default(0)
+  proposalId  String
+  proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+}
+
+// Membre pressenti pour réaliser le travail de la proposition.
+model ProposalDelegation {
+  id         String   @id @default(cuid())
+  note       String?
+  proposalId String
+  userId     String
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId])
+}
+
+model ProposalVote {
+  id         String     @id @default(cuid())
+  choice     VoteChoice
+  comment    String?
+  createdAt  DateTime   @default(now())
+  proposalId String
+  userId     String
+  proposal   Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId])
+}
+
+// Requête interne : un ticket avec son fil de discussion.
+model Ticket {
+  id         String          @id @default(cuid())
+  title      String
+  body       String
+  status     TicketStatus    @default(OUVERTE)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  projectId  String
+  authorId   String
+  assigneeId String?
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author     User            @relation("ticketAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  assignee   User?           @relation("ticketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages   TicketMessage[]
+
+  @@index([projectId])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+  ticketId  String
+  authorId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
 
 // Page du wiki du projet, rédigée en Markdown.

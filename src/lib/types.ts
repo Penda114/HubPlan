@@ -62,3 +62,19 @@ export function formatDuration(seconds: number): string {
 }
 
 export type Option = { id: string; name: string; color?: string };
+
+export const PROPOSAL_STATUS_LABELS: Record<"OUVERTE" | "ADOPTEE" | "REJETEE", string> = {
+  OUVERTE: "En vote",
+  ADOPTEE: "Adoptée",
+  REJETEE: "Rejetée",
+};
+
+export const TICKET_STATUS_LABELS: Record<
+  "OUVERTE" | "EN_COURS" | "RESOLUE" | "FERMEE",
+  string
+> = {
+  OUVERTE: "Ouverte",
+  EN_COURS: "En cours",
+  RESOLUE: "Résolue",
+  FERMEE: "Fermée",
+};
