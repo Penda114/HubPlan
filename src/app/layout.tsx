@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import { getRepoName } from "@/lib/github";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "HubPlan",
-  description: "Kanban GitHub minimaliste",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const repoName = await getRepoName();
+  return {
+    title: repoName ?? "HubPlan",
+    description:
+      "Espace de travail de l'équipe : suivi des tâches, temps passé, documentation et décisions.",
+  };
+}
 
 export default function RootLayout({
   children,

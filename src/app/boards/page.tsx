@@ -7,6 +7,7 @@ import {
   createMilestone,
   deleteBoard,
   deleteMilestone,
+  updateBoardDates,
 } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +89,41 @@ export default async function BoardsPage() {
                 <span className="text-[10px] uppercase bg-neutral-800 rounded px-1">par défaut</span>
               )}
               <span className="text-neutral-500 text-xs">{b._count.workItems} élément(s)</span>
+              {editable && (
+                <form
+                  className="flex items-center gap-2 text-xs"
+                  action={async (fd) => {
+                    "use server";
+                    await updateBoardDates(
+                      b.id,
+                      (fd.get("startDate") as string) || null,
+                      (fd.get("dueDate") as string) || null,
+                    );
+                  }}
+                >
+                  <label className="text-neutral-500">
+                    Début
+                    <input
+                      type="date"
+                      name="startDate"
+                      defaultValue={b.startDate ? b.startDate.toISOString().slice(0, 10) : ""}
+                      className="bg-neutral-800 rounded px-2 py-1 ml-1"
+                    />
+                  </label>
+                  <label className="text-neutral-500">
+                    Échéance
+                    <input
+                      type="date"
+                      name="dueDate"
+                      defaultValue={b.dueDate ? b.dueDate.toISOString().slice(0, 10) : ""}
+                      className="bg-neutral-800 rounded px-2 py-1 ml-1"
+                    />
+                  </label>
+                  <button className="border border-neutral-700 rounded px-2 py-1 hover:bg-neutral-800">
+                    Dates
+                  </button>
+                </form>
+              )}
               {editable && (
                 <form
                   className="flex items-center gap-2 ml-auto text-xs"

@@ -468,6 +468,25 @@ export async function createBoard(name: string): Promise<void> {
   revalidatePath("/boards");
 }
 
+/** Renseigne les dates d'un sprint (nécessaires au décompte affiché sur l'accueil). */
+export async function updateBoardDates(
+  boardId: string,
+  startDate: string | null,
+  dueDate: string | null,
+): Promise<void> {
+  const { project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  await prisma.board.updateMany({
+    where: { id: boardId, projectId: project.id },
+    data: {
+      startDate: startDate ? new Date(startDate) : null,
+      dueDate: dueDate ? new Date(dueDate) : null,
+    },
+  });
+  revalidatePath("/boards");
+  revalidatePath("/");
+}
+
 export async function assignItemToBoard(itemId: string, boardId: string | null): Promise<void> {
   const { project, role } = await getContext();
   if (!canEdit(role)) throw new Error("Droits insuffisants");
