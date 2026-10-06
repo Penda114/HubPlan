@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { canEdit, canManage, getContext, getCurrentUser } from "@/lib/current";
 import type { Importance, ItemType, Stage } from "@/lib/types";
@@ -172,6 +173,93 @@ export async function endTimeSession(sessionId: string): Promise<void> {
 function countGap(from: Date, to: Date): number {
   const gap = Math.round((to.getTime() - from.getTime()) / 1000);
   return gap > 0 && gap <= MAX_HEARTBEAT_GAP_SECONDS ? gap : 0;
+}
+
+// ---------------------------------------------------------------- Wiki
+
+function slugify(input: string): string {
+  const base = input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return base || "page";
+}
+
+async function uniqueWikiSlug(projectId: string, base: string): Promise<string> {
+  let candidate = base;
+  let n = 2;
+  while (
+    await prisma.wikiPage.findUnique({
+      where: { projectId_slug: { projectId, slug: candidate } },
+      select: { id: true },
+    })
+  ) {
+    candidate = `${base}-${n++}`;
+  }
+  return candidate;
+}
+
+export async function createWikiPage(title: string, content: string): Promise<void> {
+  const { user, project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  const clean = title.trim();
+  if (!clean) throw new Error("Titre requis");
+  const slug = await uniqueWikiSlug(project.id, slugify(clean));
+  await prisma.wikiPage.create({
+    data: { projectId: project.id, slug, title: clean, content, authorId: user.id },
+  });
+  revalidatePath("/docs");
+  redirect(`/docs/${slug}`);
+}
+
+export async function updateWikiPage(slug: string, title: string, content: string): Promise<void> {
+  const { project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  const clean = title.trim();
+  if (!clean) throw new Error("Titre requis");
+  await prisma.wikiPage.update({
+    where: { projectId_slug: { projectId: project.id, slug } },
+    data: { title: clean, content },
+  });
+  revalidatePath("/docs");
+  revalidatePath(`/docs/${slug}`);
+}
+
+export async function deleteWikiPage(slug: string): Promise<void> {
+  const { project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  await prisma.wikiPage.deleteMany({ where: { slug, projectId: project.id } });
+  revalidatePath("/docs");
+  redirect("/docs");
+}
+
+// ---------------------------------------------------------------- Médias
+
+export async function createMedia(url: string, title: string, kind: string): Promise<void> {
+  const { user, project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  const cleanUrl = url.trim();
+  if (!cleanUrl) throw new Error("URL requise");
+  await prisma.media.create({
+    data: {
+      projectId: project.id,
+      url: cleanUrl,
+      title: title.trim() || cleanUrl,
+      kind: kind.trim() || "image",
+      authorId: user.id,
+    },
+  });
+  revalidatePath("/media");
+}
+
+export async function deleteMedia(id: string): Promise<void> {
+  const { project, role } = await getContext();
+  if (!canEdit(role)) throw new Error("Droits insuffisants");
+  await prisma.media.deleteMany({ where: { id, projectId: project.id } });
+  revalidatePath("/media");
 }
 
 // ---------------------------------------------------------------- Projets

@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/metrics", label: "Métriques" },
   { href: "/projects", label: "Projets" },
   { href: "/docs", label: "Documentation" },
+  { href: "/media", label: "Médias" },
 ];
 
 const ROLE_LABELS: Record<Role, string> = {

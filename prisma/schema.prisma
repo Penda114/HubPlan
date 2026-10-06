@@ -49,6 +49,8 @@ model User {
   assigned    WorkItem[]   @relation("assignees")
   comments    Comment[]
   timeSessions TimeSession[]
+  wikiPages   WikiPage[]
+  media       Media[]
 }
 
 model Project {
@@ -63,6 +65,8 @@ model Project {
   designElements DesignElement[]
   workItems      WorkItem[]
   tags           Tag[]
+  wikiPages      WikiPage[]
+  media          Media[]
 }
 
 model Membership {
@@ -211,6 +215,37 @@ model Comment {
   authorId   String
   workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
   author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// Page du wiki du projet, rédigée en Markdown.
+model WikiPage {
+  id        String   @id @default(cuid())
+  slug      String
+  title     String
+  content   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projectId String
+  authorId  String?
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, slug])
+}
+
+// Média référencé par URL externe (aucun stockage local).
+model Media {
+  id        String   @id @default(cuid())
+  url       String
+  title     String
+  kind      String   @default("image")
+  createdAt DateTime @default(now())
+  projectId String
+  authorId  String?
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
 }
 
 // Session de travail : le temps n'est compté que tant que le client envoie des
