@@ -119,8 +119,8 @@ export default async function DesignPage() {
       <Header project={project} user={user} role={role} current="/design" />
 
       <p className="text-sm text-neutral-400 mb-4">
-        Le Game Design Model relie le design (mécaniques, niveaux, personnages, narration) aux
-        tâches de production.
+        Le modèle de conception relie les éléments de conception (mécaniques, niveaux,
+        personnages, narration) aux tâches de production.
       </p>
 
       {editable && (

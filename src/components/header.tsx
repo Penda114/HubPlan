@@ -2,12 +2,20 @@ import { signOut } from "@/auth";
 import type { Project, Role, User } from "@prisma/client";
 
 const LINKS = [
-  { href: "/", label: "Board" },
-  { href: "/boards", label: "Sprints & jalons" },
-  { href: "/design", label: "Design model" },
+  { href: "/", label: "Tableau" },
+  { href: "/boards", label: "Sprints" },
+  { href: "/design", label: "Modèle de conception" },
   { href: "/metrics", label: "Métriques" },
   { href: "/projects", label: "Projets" },
+  { href: "/docs", label: "Documentation" },
 ];
+
+const ROLE_LABELS: Record<Role, string> = {
+  OWNER: "Propriétaire",
+  ADMIN: "Administrateur",
+  MEMBER: "Membre",
+  VIEWER: "Observateur",
+};
 
 export default function Header({
   project,
@@ -21,23 +29,19 @@ export default function Header({
   current: string;
 }) {
   return (
-    <header className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg font-bold">
-          {project.name}{" "}
-          <span
-            className="text-xs font-normal text-neutral-500"
-            title="Clé à partager pour rejoindre ce projet"
-          >
-            #{project.key}
-          </span>
-        </h1>
-        <nav className="flex gap-3 text-sm">
+    <header className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-center gap-5">
+        <h1 className="text-base font-semibold tracking-tight">{project.name}</h1>
+        <nav className="flex gap-4 text-sm">
           {LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className={l.href === current ? "text-neutral-100" : "text-neutral-400 hover:text-neutral-200"}
+              className={
+                l.href === current
+                  ? "text-neutral-100"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }
             >
               {l.label}
             </a>
@@ -45,9 +49,9 @@ export default function Header({
         </nav>
       </div>
       <div className="flex items-center gap-3 text-sm">
-        <span className="text-neutral-400">
-          {user.name ?? user.login ?? user.email}{" "}
-          <span className="text-neutral-600">· {role.toLowerCase()}</span>
+        <span className="text-neutral-500">
+          {user.name ?? user.login ?? user.email}
+          <span className="text-neutral-600"> · {ROLE_LABELS[role]}</span>
         </span>
         <form
           action={async () => {
@@ -57,7 +61,7 @@ export default function Header({
         >
           <button
             type="submit"
-            className="border border-neutral-700 rounded px-2 py-1 hover:bg-neutral-800"
+            className="text-neutral-500 hover:text-neutral-300"
           >
             Déconnexion
           </button>

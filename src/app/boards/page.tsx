@@ -25,7 +25,7 @@ export default async function BoardsPage() {
       <Header project={project} user={user} role={role} current="/boards" />
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-neutral-300 mb-2">Milestones (roadmap)</h2>
+        <h2 className="text-sm font-semibold text-neutral-300 mb-2">Jalons (feuille de route)</h2>
         <ul className="space-y-2 mb-3">
           {milestones.map((m) => (
             <li
@@ -34,7 +34,7 @@ export default async function BoardsPage() {
             >
               <span className="font-medium">{m.name}</span>
               <span className="text-neutral-500 text-xs">
-                {m._count.boards} board(s)
+                {m._count.boards} sprint(s)
                 {m.dueDate ? ` · échéance ${m.dueDate.toLocaleDateString("fr-FR")}` : ""}
               </span>
               {manage && (
@@ -51,7 +51,7 @@ export default async function BoardsPage() {
             </li>
           ))}
           {milestones.length === 0 && (
-            <li className="text-neutral-500 text-sm">Aucun milestone.</li>
+            <li className="text-neutral-500 text-sm">Aucun jalon.</li>
           )}
         </ul>
         {editable && (
@@ -64,7 +64,7 @@ export default async function BoardsPage() {
           >
             <input
               name="name"
-              placeholder="Nouveau milestone (ex. Alpha)"
+              placeholder="Nouveau jalon (ex. Alpha)"
               className="bg-neutral-800 rounded px-2 py-1.5 flex-1"
             />
             <input name="dueDate" type="date" className="bg-neutral-800 rounded px-2 py-1.5" />
@@ -76,7 +76,7 @@ export default async function BoardsPage() {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-neutral-300 mb-2">Boards (sprints / itérations)</h2>
+        <h2 className="text-sm font-semibold text-neutral-300 mb-2">Sprints</h2>
         <ul className="space-y-2 mb-3">
           {boards.map((b) => (
             <li
@@ -85,7 +85,7 @@ export default async function BoardsPage() {
             >
               <span className="font-medium">{b.name}</span>
               {b.isDefault && (
-                <span className="text-[10px] uppercase bg-neutral-800 rounded px-1">défaut</span>
+                <span className="text-[10px] uppercase bg-neutral-800 rounded px-1">par défaut</span>
               )}
               <span className="text-neutral-500 text-xs">{b._count.workItems} élément(s)</span>
               {editable && (
@@ -102,7 +102,7 @@ export default async function BoardsPage() {
                     defaultValue={b.milestoneId ?? ""}
                     className="bg-neutral-800 rounded px-2 py-1"
                   >
-                    <option value="">— sans milestone —</option>
+                    <option value="">— sans jalon —</option>
                     {milestones.map((m) => (
                       <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
@@ -124,7 +124,7 @@ export default async function BoardsPage() {
               )}
             </li>
           ))}
-          {boards.length === 0 && <li className="text-neutral-500 text-sm">Aucun board.</li>}
+          {boards.length === 0 && <li className="text-neutral-500 text-sm">Aucun sprint.</li>}
         </ul>
         {editable && (
           <form
@@ -136,7 +136,7 @@ export default async function BoardsPage() {
           >
             <input
               name="name"
-              placeholder="Nouveau board (ex. Sprint 2)"
+              placeholder="Nouveau sprint (ex. Sprint 2)"
               className="bg-neutral-800 rounded px-2 py-1.5 flex-1"
             />
             <button className="border border-neutral-700 rounded px-3 hover:bg-neutral-800">

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { getRepoName } from "./github";
 import { prisma } from "./db";
 import { Prisma, type Project, type Role, type User } from "@prisma/client";
 
@@ -106,11 +107,18 @@ export async function getActiveProject(
   }
 }
 
+/** Aligne le nom du projet sur le nom du dépôt GitHub du jeu (titre dynamique). */
+async function syncProjectName(project: Project): Promise<Project> {
+  const repoName = await getRepoName();
+  if (!repoName || project.name === repoName) return project;
+  return prisma.project.update({ where: { id: project.id }, data: { name: repoName } });
+}
+
 /** Contexte courant complet pour les pages et actions. */
 export async function getContext() {
   const user = await getCurrentUser();
   const { project, role } = await getActiveProject(user.id);
-  return { user, project, role };
+  return { user, project: await syncProjectName(project), role };
 }
 
 export function canEdit(role: Role): boolean {

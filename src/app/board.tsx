@@ -223,26 +223,22 @@ export default function Board(props: Props) {
                               {...p.draggableProps}
                               {...p.dragHandleProps}
                               onClick={() => openEdit(item)}
-                              className="bg-neutral-800 rounded p-2 text-sm cursor-pointer hover:bg-neutral-700"
+                              style={{
+                                ...p.draggableProps.style,
+                                borderLeftColor: importanceMeta(item.importance).color,
+                              }}
+                              title={`Importance : ${importanceMeta(item.importance).label}`}
+                              className="bg-neutral-800 rounded p-2 text-sm cursor-pointer hover:bg-neutral-700 border-l-2"
                             >
-                              <div className="flex items-center gap-2 mb-1">
-                                <span
-                                  className="text-[10px] uppercase font-bold px-1 rounded"
-                                  style={{
-                                    color: ITEM_TYPES.find((t) => t.id === item.type)?.color,
-                                  }}
-                                >
-                                  {ITEM_TYPES.find((t) => t.id === item.type)?.label}
-                                </span>
-                                <span
-                                  className="ml-auto text-xs"
-                                  style={{ color: importanceMeta(item.importance).color }}
-                                  title={importanceMeta(item.importance).label}
-                                >
-                                  ●
-                                </span>
-                              </div>
-                              <p className="leading-snug">{item.title}</p>
+                              <span
+                                className="text-[10px] uppercase font-bold tracking-wide"
+                                style={{
+                                  color: ITEM_TYPES.find((t) => t.id === item.type)?.color,
+                                }}
+                              >
+                                {ITEM_TYPES.find((t) => t.id === item.type)?.label}
+                              </span>
+                              <p className="leading-snug mt-0.5">{item.title}</p>
                               <div className="flex items-center gap-2 mt-1.5 text-[11px] text-neutral-400 flex-wrap">
                                 {item.categoryName && (
                                   <span className="inline-flex items-center gap-1">
@@ -329,7 +325,7 @@ export default function Board(props: Props) {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-neutral-400 text-xs">Board</span>
+                  <span className="text-neutral-400 text-xs">Sprint</span>
                   <select
                     value={form.boardId}
                     onChange={(e) => setForm({ ...form, boardId: e.target.value })}
@@ -342,7 +338,7 @@ export default function Board(props: Props) {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-neutral-400 text-xs">Élément de design</span>
+                  <span className="text-neutral-400 text-xs">Élément de conception</span>
                   <select
                     value={form.designElementId}
                     onChange={(e) => setForm({ ...form, designElementId: e.target.value })}

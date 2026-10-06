@@ -5,7 +5,7 @@ export type ItemType = "TASK" | "USER_STORY" | "BUG" | "FEATURE";
 export const STAGES: { id: Stage; label: string }[] = [
   { id: "PLANNED", label: "Planifié" },
   { id: "IN_PROGRESS", label: "En cours" },
-  { id: "TESTING", label: "Test" },
+  { id: "TESTING", label: "En test" },
   { id: "COMPLETED", label: "Terminé" },
 ];
 
@@ -18,9 +18,9 @@ export const IMPORTANCES: { id: Importance; label: string; color: string }[] = [
 
 export const ITEM_TYPES: { id: ItemType; label: string; color: string }[] = [
   { id: "TASK", label: "Tâche", color: "#3b82f6" },
-  { id: "USER_STORY", label: "User story", color: "#a855f7" },
-  { id: "BUG", label: "Bug", color: "#ef4444" },
-  { id: "FEATURE", label: "Feature", color: "#10b981" },
+  { id: "USER_STORY", label: "Récit utilisateur", color: "#a855f7" },
+  { id: "BUG", label: "Anomalie", color: "#ef4444" },
+  { id: "FEATURE", label: "Fonctionnalité", color: "#10b981" },
 ];
 
 export function stageLabel(stage: Stage): string {
