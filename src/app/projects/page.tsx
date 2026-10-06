@@ -1,4 +1,5 @@
 import Header from "@/components/header";
+import BackupPanel from "@/components/backup-panel";
 import { getContext } from "@/lib/current";
 import { prisma } from "@/lib/db";
 import JoinProjectForm from "./join-form";
@@ -58,6 +59,15 @@ export default async function ProjectsPage() {
           board.
         </p>
         <JoinProjectForm />
+      </section>
+
+      <section className="bg-neutral-900 rounded p-4 mt-6">
+        <h2 className="text-sm font-semibold text-neutral-300 mb-1">Sauvegarde des données</h2>
+        <p className="text-xs text-neutral-500 mb-3">
+          Exporte l&apos;intégralité du contenu en JSON, ou enregistre-le sur le dépôt GitHub
+          (une sauvegarde automatique est aussi réalisée chaque nuit).
+        </p>
+        <BackupPanel />
       </section>
     </main>
   );
