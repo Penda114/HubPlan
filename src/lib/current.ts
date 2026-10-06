@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "./db";
-import type { Project, Role, User } from "@prisma/client";
+import { Prisma, type Project, type Role, type User } from "@prisma/client";
 
 export const DEFAULT_CATEGORIES: { name: string; color: string }[] = [
   { name: "Programming", color: "#3b82f6" },
@@ -14,6 +14,36 @@ export const DEFAULT_CATEGORIES: { name: string; color: string }[] = [
 ];
 
 export type CurrentUser = User;
+
+const DEFAULT_PROJECT_NAME = "Mon jeu";
+
+/** Slug de clé à partir d'un nom de projet (ex. « Mon jeu » -> « MONJEU »). */
+function baseProjectKey(name: string): string {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 12);
+  return slug || "PROJET";
+}
+
+/**
+ * `Project.key` est unique globalement : on ne peut donc pas réutiliser une clé
+ * constante (l'ancien `"GAME"` faisait planter le 2e utilisateur). On suffixe
+ * jusqu'à trouver une clé libre.
+ */
+async function uniqueProjectKey(base: string): Promise<string> {
+  const isTaken = (key: string) =>
+    prisma.project.findUnique({ where: { key }, select: { id: true } });
+  if (!(await isTaken(base))) return base;
+  for (let i = 0; i < 10; i++) {
+    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const candidate = `${base.slice(0, 11)}-${suffix}`;
+    if (!(await isTaken(candidate))) return candidate;
+  }
+  throw new Error("Impossible de générer une clé de projet unique");
+}
 
 /** Récupère (ou crée) l'utilisateur correspondant à la session GitHub. */
 export async function getCurrentUser(): Promise<CurrentUser> {
@@ -52,18 +82,28 @@ export async function getActiveProject(
     return { project: membership.project, role: membership.role };
   }
 
-  const project = await prisma.project.create({
-    data: {
-      name: "Mon jeu",
-      key: "GAME",
-      memberships: { create: { userId, role: "OWNER" } },
-      categories: { create: DEFAULT_CATEGORIES },
-      boards: {
-        create: { name: "Sprint 1", isDefault: true, description: "Itération courante" },
-      },
-    },
-  });
-  return { project, role: "OWNER" };
+  const base = baseProjectKey(DEFAULT_PROJECT_NAME);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const project = await prisma.project.create({
+        data: {
+          name: DEFAULT_PROJECT_NAME,
+          key: await uniqueProjectKey(base),
+          memberships: { create: { userId, role: "OWNER" } },
+          categories: { create: DEFAULT_CATEGORIES },
+          boards: {
+            create: { name: "Sprint 1", isDefault: true, description: "Itération courante" },
+          },
+        },
+      });
+      return { project, role: "OWNER" as const };
+    } catch (error) {
+      // Course entre deux créations : on retente avec une autre clé.
+      const isKeyCollision =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+      if (!isKeyCollision || attempt >= 3) throw error;
+    }
+  }
 }
 
 /** Contexte courant complet pour les pages et actions. */

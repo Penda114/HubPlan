@@ -6,14 +6,15 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-p
 import {
   createWorkItem,
   deleteWorkItem,
-  logWork,
   setWorkItemStage,
   updateWorkItem,
 } from "./actions";
+import TimeTracker from "@/components/time-tracker";
 import {
   IMPORTANCES,
   ITEM_TYPES,
   STAGES,
+  formatDuration,
   importanceMeta,
   type Importance,
   type ItemType,
@@ -28,6 +29,7 @@ type Props = {
   boards: Option[];
   designElements: Option[];
   members: { id: string; name: string }[];
+  currentUserId: string;
   canEdit: boolean;
 };
 
@@ -37,7 +39,6 @@ type FormState = {
   description: string;
   stage: Stage;
   importance: Importance;
-  estimatedCost: string;
   categoryId: string;
   boardId: string;
   designElementId: string;
@@ -50,7 +51,6 @@ const EMPTY_FORM: FormState = {
   description: "",
   stage: "PLANNED",
   importance: "MEDIUM",
-  estimatedCost: "",
   categoryId: "",
   boardId: "",
   designElementId: "",
@@ -67,6 +67,11 @@ export default function Board(props: Props) {
   }
 
   const [editing, setEditing] = useState<WorkItemDTO | null>(null);
+  const [memberFilter, setMemberFilter] = useState<string>(props.currentUserId);
+
+  const visibleItems = memberFilter
+    ? items.filter((i) => i.assigneeIds.includes(memberFilter))
+    : items;
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +94,6 @@ export default function Board(props: Props) {
       description: item.description ?? "",
       stage: item.stage,
       importance: item.importance,
-      estimatedCost: item.estimatedCost != null ? String(item.estimatedCost) : "",
       categoryId: item.categoryId ?? "",
       boardId: item.boardId ?? "",
       designElementId: item.designElementId ?? "",
@@ -110,7 +114,6 @@ export default function Board(props: Props) {
       description: form.description,
       stage: form.stage,
       importance: form.importance,
-      estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : null,
       categoryId: form.categoryId || null,
       boardId: form.boardId || null,
       designElementId: form.designElementId || null,
@@ -162,7 +165,25 @@ export default function Board(props: Props) {
 
   return (
     <>
-      <div className="flex justify-end mb-3">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <label className="flex items-center gap-2 text-xs text-neutral-400">
+          Afficher
+          <select
+            value={memberFilter}
+            onChange={(e) => setMemberFilter(e.target.value)}
+            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200"
+          >
+            <option value={props.currentUserId}>Mes tâches</option>
+            <option value="">Toute l&apos;équipe</option>
+            {props.members
+              .filter((m) => m.id !== props.currentUserId)
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+          </select>
+        </label>
         {props.canEdit && (
           <button
             onClick={openCreate}
@@ -176,7 +197,7 @@ export default function Board(props: Props) {
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
           {STAGES.map((col) => {
-            const colItems = items.filter((i) => i.stage === col.id);
+            const colItems = visibleItems.filter((i) => i.stage === col.id);
             return (
               <Droppable droppableId={col.id} key={col.id} isDropDisabled={!props.canEdit}>
                 {(provided) => (
@@ -234,7 +255,7 @@ export default function Board(props: Props) {
                                 )}
                                 {item.boardName && <span>· {item.boardName}</span>}
                                 {item.subtaskCount > 0 && <span>· {item.subtaskCount} sous-tâches</span>}
-                                {item.estimatedCost != null && <span>· {item.estimatedCost} pts</span>}
+                                {item.loggedSeconds > 0 && <span>· {formatDuration(item.loggedSeconds)}</span>}
                                 {item.assigneeNames.length > 0 && (
                                   <span className="ml-auto">{item.assigneeNames.join(", ")}</span>
                                 )}
@@ -333,17 +354,6 @@ export default function Board(props: Props) {
                     ))}
                   </select>
                 </label>
-                <label className="block">
-                  <span className="text-neutral-400 text-xs">Coût estimé (points)</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={form.estimatedCost}
-                    onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })}
-                    className="w-full bg-neutral-800 rounded px-2 py-1.5 mt-1"
-                  />
-                </label>
                 <label className="block col-span-2">
                   <span className="text-neutral-400 text-xs">Colonne</span>
                   <select
@@ -402,25 +412,9 @@ export default function Board(props: Props) {
               </label>
 
               {editing && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const h = prompt("Heures à logger ?", "1");
-                    if (!h) return;
-                    startTransition(async () => {
-                      try {
-                        await logWork(editing.id, Number(h));
-                        setEditing({ ...editing, loggedHours: editing.loggedHours + Number(h) });
-                        router.refresh();
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : "Erreur");
-                      }
-                    });
-                  }}
-                  className="text-xs text-neutral-400 hover:text-neutral-200"
-                >
-                  Temps loggé : {editing.loggedHours}h — logger du temps
-                </button>
+                <div className="border-t border-neutral-800 pt-3">
+                  <TimeTracker workItemId={editing.id} />
+                </div>
               )}
 
               {error && <p className="text-red-400 text-xs">{error}</p>}

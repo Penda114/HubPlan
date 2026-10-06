@@ -1,7 +1,7 @@
 import Header from "@/components/header";
 import { getContext } from "@/lib/current";
 import { prisma } from "@/lib/db";
-import { IMPORTANCES, ITEM_TYPES, STAGES } from "@/lib/types";
+import { IMPORTANCES, ITEM_TYPES, STAGES, formatDuration } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function MetricsPage() {
       include: {
         category: true,
         assignees: true,
-        workLogs: { select: { hours: true } },
+        timeSessions: { select: { seconds: true } },
       },
     }),
     prisma.membership.findMany({ where: { projectId: project.id }, include: { user: true } }),
@@ -32,9 +32,8 @@ export default async function MetricsPage() {
   const total = items.length;
   const completed = items.filter((i) => i.stage === "COMPLETED").length;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const estimated = items.reduce((s, i) => s + (i.estimatedCost ?? 0), 0);
   const logged = items.reduce(
-    (s, i) => s + i.workLogs.reduce((a, w) => a + w.hours, 0),
+    (s, i) => s + i.timeSessions.reduce((a, t) => a + t.seconds, 0),
     0,
   );
 
@@ -70,13 +69,13 @@ export default async function MetricsPage() {
     };
   });
 
-  // Charge par personne : éléments assignés + heures réellement imputées.
-  const logs = await prisma.workLog.groupBy({
+  // Charge par personne : éléments assignés + temps réellement enregistré.
+  const logs = await prisma.timeSession.groupBy({
     by: ["userId"],
     where: { workItem: { projectId: project.id } },
-    _sum: { hours: true },
+    _sum: { seconds: true },
   });
-  const hoursByUser = new Map(logs.map((l) => [l.userId, l._sum.hours ?? 0]));
+  const secondsByUser = new Map(logs.map((l) => [l.userId, l._sum.seconds ?? 0]));
 
   const workload = members.map((m) => {
     const assigned = items.filter((i) => i.assignees.some((a) => a.id === m.user.id));
@@ -85,7 +84,7 @@ export default async function MetricsPage() {
       name: m.user.name ?? m.user.login ?? "?",
       assigned: assigned.length,
       done: assigned.filter((i) => i.stage === "COMPLETED").length,
-      hours: hoursByUser.get(m.user.id) ?? 0,
+      seconds: secondsByUser.get(m.user.id) ?? 0,
     };
   });
 
@@ -98,7 +97,7 @@ export default async function MetricsPage() {
           { label: "Éléments", value: total },
           { label: "Progression", value: `${progress}%` },
           { label: "Terminés (7j)", value: completedThisWeek },
-          { label: "Temps loggé", value: `${logged}h` },
+          { label: "Temps actif", value: formatDuration(logged) },
         ].map((k) => (
           <div key={k.label} className="bg-neutral-900 rounded p-3">
             <p className="text-xs text-neutral-500">{k.label}</p>
@@ -182,7 +181,7 @@ export default async function MetricsPage() {
               <th className="py-1">Membre</th>
               <th>Assignés</th>
               <th>Terminés</th>
-              <th>Heures loggées</th>
+              <th>Temps actif</th>
             </tr>
           </thead>
           <tbody>
@@ -191,7 +190,7 @@ export default async function MetricsPage() {
                 <td className="py-1.5">{w.name}</td>
                 <td>{w.assigned}</td>
                 <td>{w.done}</td>
-                <td>{w.hours}h</td>
+                <td>{formatDuration(w.seconds)}</td>
               </tr>
             ))}
             {workload.length === 0 && (
@@ -206,8 +205,7 @@ export default async function MetricsPage() {
       </section>
 
       <p className="text-xs text-neutral-500 mt-6">
-        Estimation totale : {estimated} points · Temps loggé : {logged}h
-        {estimated > 0 && ` · écart estimation/temps : ${(estimated - logged).toFixed(1)}`}
+        Temps actif cumulé : {formatDuration(logged)}
       </p>
     </main>
   );

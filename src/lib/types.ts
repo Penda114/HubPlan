@@ -38,7 +38,6 @@ export type WorkItemDTO = {
   description: string | null;
   stage: Stage;
   importance: Importance;
-  estimatedCost: number | null;
   boardId: string | null;
   categoryId: string | null;
   designElementId: string | null;
@@ -50,7 +49,16 @@ export type WorkItemDTO = {
   assigneeIds: string[];
   assigneeNames: string[];
   subtaskCount: number;
-  loggedHours: number;
+  loggedSeconds: number;
 };
+
+/** Formate une durée en secondes, ex. « 2 h 05 » ou « 12 min ». */
+export function formatDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  if (hours > 0) return `${hours} h ${String(minutes).padStart(2, "0")}`;
+  return `${minutes} min`;
+}
 
 export type Option = { id: string; name: string; color?: string };

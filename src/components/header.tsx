@@ -6,6 +6,7 @@ const LINKS = [
   { href: "/boards", label: "Sprints & jalons" },
   { href: "/design", label: "Design model" },
   { href: "/metrics", label: "Métriques" },
+  { href: "/projects", label: "Projets" },
 ];
 
 export default function Header({
@@ -22,7 +23,15 @@ export default function Header({
   return (
     <header className="flex items-center justify-between mb-4 gap-4 flex-wrap">
       <div className="flex items-center gap-4">
-        <h1 className="text-lg font-bold">{project.name}</h1>
+        <h1 className="text-lg font-bold">
+          {project.name}{" "}
+          <span
+            className="text-xs font-normal text-neutral-500"
+            title="Clé à partager pour rejoindre ce projet"
+          >
+            #{project.key}
+          </span>
+        </h1>
         <nav className="flex gap-3 text-sm">
           {LINKS.map((l) => (
             <a

@@ -11,7 +11,7 @@ export async function listWorkItems(projectId: string): Promise<WorkItemDTO[]> {
       designElement: true,
       assignees: true,
       _count: { select: { children: true } },
-      workLogs: { select: { hours: true } },
+      timeSessions: { select: { seconds: true } },
     },
   });
 
@@ -22,7 +22,6 @@ export async function listWorkItems(projectId: string): Promise<WorkItemDTO[]> {
     description: i.description,
     stage: i.stage,
     importance: i.importance,
-    estimatedCost: i.estimatedCost,
     boardId: i.boardId,
     categoryId: i.categoryId,
     designElementId: i.designElementId,
@@ -34,7 +33,7 @@ export async function listWorkItems(projectId: string): Promise<WorkItemDTO[]> {
     assigneeIds: i.assignees.map((a) => a.id),
     assigneeNames: i.assignees.map((a) => a.name ?? a.login ?? "?"),
     subtaskCount: i._count.children,
-    loggedHours: i.workLogs.reduce((sum, w) => sum + w.hours, 0),
+    loggedSeconds: i.timeSessions.reduce((sum, s) => sum + s.seconds, 0),
   }));
 }
 

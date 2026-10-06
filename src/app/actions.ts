@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { canEdit, canManage, getContext } from "@/lib/current";
+import { canEdit, canManage, getContext, getCurrentUser } from "@/lib/current";
 import type { Importance, ItemType, Stage } from "@/lib/types";
 
 const STAGE_VALUES: Stage[] = ["PLANNED", "IN_PROGRESS", "TESTING", "COMPLETED"];
@@ -26,7 +26,6 @@ type WorkItemInput = {
   description?: string | null;
   stage?: Stage;
   importance?: Importance;
-  estimatedCost?: number | null;
   categoryId?: string | null;
   boardId?: string | null;
   designElementId?: string | null;
@@ -56,10 +55,6 @@ export async function createWorkItem(input: WorkItemInput): Promise<void> {
         input.importance && IMPORTANCE_VALUES.includes(input.importance)
           ? input.importance
           : "MEDIUM",
-      estimatedCost:
-        input.estimatedCost != null && !Number.isNaN(input.estimatedCost)
-          ? input.estimatedCost
-          : null,
       categoryId,
       boardId: str(input.boardId),
       designElementId: str(input.designElementId),
@@ -88,10 +83,6 @@ export async function updateWorkItem(id: string, input: WorkItemInput): Promise<
         input.importance && IMPORTANCE_VALUES.includes(input.importance)
           ? input.importance
           : "MEDIUM",
-      estimatedCost:
-        input.estimatedCost != null && !Number.isNaN(input.estimatedCost)
-          ? input.estimatedCost
-          : null,
       categoryId: str(input.categoryId),
       boardId: str(input.boardId),
       designElementId: str(input.designElementId),
@@ -121,15 +112,88 @@ export async function deleteWorkItem(id: string): Promise<void> {
   revalidatePath("/");
 }
 
-export async function logWork(id: string, hours: number, note?: string): Promise<void> {
+// ---------------------------------------------------------------- Suivi du temps
+
+/** Au-delà de cet écart entre deux battements, on considère la session interrompue. */
+const MAX_HEARTBEAT_GAP_SECONDS = 40;
+
+/** Ouvre une session de travail sur une tâche. */
+export async function startTimeSession(workItemId: string): Promise<string> {
   const { user, project, role } = await getContext();
   if (!canEdit(role)) throw new Error("Droits insuffisants");
-  if (!(hours > 0)) throw new Error("Durée invalide");
-  await assertItemInProject(project.id, id);
-  await prisma.workLog.create({
-    data: { workItemId: id, userId: user.id, hours, note: str(note) },
+  await assertItemInProject(project.id, workItemId);
+  const session = await prisma.timeSession.create({
+    data: { userId: user.id, workItemId },
+    select: { id: true },
+  });
+  return session.id;
+}
+
+/**
+ * Enregistre un battement de cœur : on ajoute le temps écoulé depuis le dernier
+ * battement, uniquement s'il est court (client resté actif et page visible).
+ */
+export async function heartbeatTimeSession(sessionId: string): Promise<number> {
+  const { user } = await getContext();
+  const session = await prisma.timeSession.findFirst({
+    where: { id: sessionId, userId: user.id, endedAt: null },
+  });
+  if (!session) return 0;
+
+  const now = new Date();
+  const seconds = session.seconds + countGap(session.lastHeartbeatAt, now);
+  await prisma.timeSession.update({
+    where: { id: session.id },
+    data: { seconds, lastHeartbeatAt: now },
+  });
+  return seconds;
+}
+
+/** Clôture une session (dernier battement inclus). */
+export async function endTimeSession(sessionId: string): Promise<void> {
+  const { user } = await getContext();
+  const session = await prisma.timeSession.findFirst({
+    where: { id: sessionId, userId: user.id, endedAt: null },
+  });
+  if (!session) return;
+
+  const now = new Date();
+  await prisma.timeSession.update({
+    where: { id: session.id },
+    data: {
+      seconds: session.seconds + countGap(session.lastHeartbeatAt, now),
+      lastHeartbeatAt: now,
+      endedAt: now,
+    },
   });
   revalidatePath("/");
+}
+
+function countGap(from: Date, to: Date): number {
+  const gap = Math.round((to.getTime() - from.getTime()) / 1000);
+  return gap > 0 && gap <= MAX_HEARTBEAT_GAP_SECONDS ? gap : 0;
+}
+
+// ---------------------------------------------------------------- Projets
+
+/** Rejoint un projet existant à partir de sa clé, puis renvoie son nom. */
+export async function joinProject(rawKey: string): Promise<string> {
+  const user = await getCurrentUser();
+  const key = rawKey.trim().toUpperCase();
+  if (!key) throw new Error("Clé requise");
+
+  const project = await prisma.project.findUnique({ where: { key } });
+  if (!project) throw new Error("Aucun projet ne correspond à cette clé");
+
+  await prisma.membership.upsert({
+    where: { userId_projectId: { userId: user.id, projectId: project.id } },
+    update: {},
+    create: { userId: user.id, projectId: project.id, role: "MEMBER" },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/projects");
+  return project.name;
 }
 
 // ---------------------------------------------------------------- Boards
