@@ -50,7 +50,6 @@ model User {
   comments    Comment[]
   timeSessions TimeSession[]
   wikiPages   WikiPage[]
-  media       Media[]
   proposals           Proposal[]           @relation("proposalAuthor")
   proposalVotes       ProposalVote[]
   proposalDelegations ProposalDelegation[]
@@ -72,7 +71,6 @@ model Project {
   workItems      WorkItem[]
   tags           Tag[]
   wikiPages      WikiPage[]
-  media          Media[]
   proposals      Proposal[]
   tickets        Ticket[]
 }
@@ -340,21 +338,6 @@ model WikiPage {
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, slug])
-}
-
-// Média référencé par URL externe (aucun stockage local).
-model Media {
-  id        String   @id @default(cuid())
-  url       String
-  title     String
-  kind      String   @default("image")
-  createdAt DateTime @default(now())
-  projectId String
-  authorId  String?
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
-
-  @@index([projectId])
 }
 
 // Session de travail : le temps n'est compté que tant que le client envoie des

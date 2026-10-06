@@ -134,13 +134,6 @@ export async function getWikiPage(projectId: string, slug: string) {
   });
 }
 
-export async function listMedia(projectId: string) {
-  return prisma.media.findMany({
-    where: { projectId },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
 export async function listMembers(projectId: string) {
   const rows = await prisma.membership.findMany({
     where: { projectId },

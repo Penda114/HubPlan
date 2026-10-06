@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { canEdit, canManage, getContext, getCurrentUser } from "@/lib/current";
+import { canEdit, canManage, getContext } from "@/lib/current";
 import type { Importance, ItemType, Stage } from "@/lib/types";
 
 const STAGE_VALUES: Stage[] = ["PLANNED", "IN_PROGRESS", "TESTING", "COMPLETED"];
@@ -236,32 +236,6 @@ export async function deleteWikiPage(slug: string): Promise<void> {
   redirect("/docs");
 }
 
-// ---------------------------------------------------------------- Médias
-
-export async function createMedia(url: string, title: string, kind: string): Promise<void> {
-  const { user, project, role } = await getContext();
-  if (!canEdit(role)) throw new Error("Droits insuffisants");
-  const cleanUrl = url.trim();
-  if (!cleanUrl) throw new Error("URL requise");
-  await prisma.media.create({
-    data: {
-      projectId: project.id,
-      url: cleanUrl,
-      title: title.trim() || cleanUrl,
-      kind: kind.trim() || "image",
-      authorId: user.id,
-    },
-  });
-  revalidatePath("/media");
-}
-
-export async function deleteMedia(id: string): Promise<void> {
-  const { project, role } = await getContext();
-  if (!canEdit(role)) throw new Error("Droits insuffisants");
-  await prisma.media.deleteMany({ where: { id, projectId: project.id } });
-  revalidatePath("/media");
-}
-
 // ---------------------------------------------------------------- Propositions
 
 /**
@@ -435,29 +409,7 @@ export async function setTicketStatus(
   revalidatePath(`/tickets/${ticketId}`);
 }
 
-// ---------------------------------------------------------------- Projets
-
-/** Rejoint un projet existant à partir de sa clé, puis renvoie son nom. */
-export async function joinProject(rawKey: string): Promise<string> {
-  const user = await getCurrentUser();
-  const key = rawKey.trim().toUpperCase();
-  if (!key) throw new Error("Clé requise");
-
-  const project = await prisma.project.findUnique({ where: { key } });
-  if (!project) throw new Error("Aucun projet ne correspond à cette clé");
-
-  await prisma.membership.upsert({
-    where: { userId_projectId: { userId: user.id, projectId: project.id } },
-    update: {},
-    create: { userId: user.id, projectId: project.id, role: "MEMBER" },
-  });
-
-  revalidatePath("/");
-  revalidatePath("/projects");
-  return project.name;
-}
-
-// ---------------------------------------------------------------- Boards
+// ---------------------------------------------------------------- Sprints
 
 export async function createBoard(name: string): Promise<void> {
   const { project, role } = await getContext();

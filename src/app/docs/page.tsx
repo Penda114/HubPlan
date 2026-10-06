@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Header from "@/components/header";
+import BackupPanel from "@/components/backup-panel";
 import { createWikiPage } from "@/app/actions";
 import { canEdit, getContext } from "@/lib/current";
 import { listWikiPages } from "@/lib/data";
@@ -65,6 +66,15 @@ export default async function DocsPage() {
           </form>
         </section>
       )}
+
+      <section className="bg-neutral-900 rounded p-4 mt-8">
+        <h3 className="text-sm font-semibold text-neutral-300 mb-1">Sauvegarde des données</h3>
+        <p className="text-xs text-neutral-500 mb-3">
+          Exporte tout le contenu en JSON, ou enregistre-le sur le dépôt GitHub (une sauvegarde
+          automatique est aussi déposée chaque nuit).
+        </p>
+        <BackupPanel />
+      </section>
     </main>
   );
 }
